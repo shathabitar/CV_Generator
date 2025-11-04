@@ -11,5 +11,5 @@ Route::post('/store', [CVController::class, 'store'])->name('cv.store');
 
 
 Route::get('/cv/preview/{id}', [CVController::class, 'preview'])->name('cv.preview');
-Route::get('/cv/download-pdf/{id}', [CVController::class, 'downloadCvPdf'])->name('cv.download.pdf');
+Route::get('/cv/download-pdf/{id}', [CVController::class, 'generateCV'])->name('cv.download.pdf');
 

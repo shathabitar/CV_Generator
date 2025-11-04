@@ -109,7 +109,6 @@
     </form>
 </div>
 
-<!-- JavaScript to dynamically clone entries -->
 <script>
 let eduIndex = 1;
 let expIndex = 1;

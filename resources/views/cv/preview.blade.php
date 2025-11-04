@@ -1,7 +1,6 @@
 @extends('layout')
 
 @php
-    // Determine photo source
     $photo_src = null;
     if(!empty($data['photo'])) {
         $photo_path = public_path('storage/' . $data['photo']);
@@ -18,7 +17,6 @@
 @section('content')
 <div style="width: 700px; margin: auto; font-family: Arial, sans-serif; line-height: 1.5;">
 
-    <!-- Header: Name and Photo Centered -->
     <div style="width: 100%; text-align: center; margin-bottom: 25px;">
         @if($photo_src)
             <div style="width: 120px; height: 120px; margin: 0 auto 10px auto; border-radius: 50%; overflow: hidden; position: relative; border: 2px solid #007BFF;">

@@ -10,10 +10,11 @@ use App\Models\Reference;
 use App\Models\Certificate; 
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use App\Jobs\GenerateCvPdf;
 
 class CVController extends Controller
 {
-    // Show the CV creation form
+
     public function index()
     {
         $technicalSkills = Skill::where('type', 'technical')->get();
@@ -22,7 +23,6 @@ class CVController extends Controller
         return view('cv.form', compact('technicalSkills', 'softSkills'));
     }
 
-    // Generate CV preview
     public function generate(Request $request)
     {
         $data = $request->validate([
@@ -104,8 +104,6 @@ class CVController extends Controller
     }
 
 
-
-    // Store CV to database with many-to-many relationships
     public function store(Request $request)
     {
         $request->validate([
@@ -120,39 +118,33 @@ class CVController extends Controller
             'soft_skills' => 'nullable|array',
         ]);
 
-        // 1️⃣ Create User
         $user = User::create([
             'name' => $request->name,
             'about' => $request->about,
             'photo' => $request->photo ? $request->file('photo')->store('photos', 'public') : null,
         ]);
 
-        // 2️⃣ Attach Skills
         $skills = Skill::whereIn('skill_name', array_merge(
             $request->technical_skills ?? [],
             $request->soft_skills ?? []
         ))->pluck('id');
         $user->skills()->attach($skills);
 
-        // 3️⃣ Create Education & attach
         foreach ($request->education ?? [] as $edu) {
             $education = Education::create($edu);
             $user->educations()->attach($education->id);
         }
 
-        // 4️⃣ Create Experience & attach
         foreach ($request->experience ?? [] as $exp) {
             $experience = Experience::create($exp);
             $user->experiences()->attach($experience->id);
         }
 
-        // 5️⃣ Create References & attach
         foreach ($request->reference ?? [] as $ref) {
             $reference = Reference::create($ref);
             $user->references()->attach($reference->id);
         }
 
-        // 6️⃣ Create Certificates & attach
         foreach ($request->certificate ?? [] as $cert) {
             $certificate = Certificate::create($cert);
             $user->certificates()->attach($certificate->id);
@@ -200,7 +192,7 @@ class CVController extends Controller
 
     return view('cv.preview', [
         'data' => $data,
-        'userId' => $user->id, // <-- Pass the user ID
+        'userId' => $user->id, 
     ]);
 }
 
@@ -210,9 +202,18 @@ class CVController extends Controller
         $data = json_decode($request->input('data'), true);
 
         $pdf = Pdf::loadView('cv.pdf', compact('data'))
-                ->setOptions(['isRemoteEnabled' => true]); // optional if using asset()
+                ->setOptions(['isRemoteEnabled' => true]);
 
         return $pdf->download('My_CV.pdf');
+    }
+
+    public function generateCv($id)
+    {
+        GenerateCvPdf::dispatch($id);
+
+        return response()->json([
+            'message' => 'Your CV is being generated. You will receive an email when it’s ready.'
+        ]);
     }
 
 

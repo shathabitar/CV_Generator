@@ -31,10 +31,8 @@
         const wrapper = document.getElementById('education-wrapper');
         const newEntry = document.querySelector('.education-entry').cloneNode(true);
 
-        // Clear values
         newEntry.querySelectorAll('input').forEach(input => input.value = '');
 
-        // Update names with new index
         newEntry.querySelectorAll('input').forEach(input => {
             const name = input.getAttribute('name');
             input.setAttribute('name', name.replace(/\d+/, eduIndex));
