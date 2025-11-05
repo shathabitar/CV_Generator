@@ -4,7 +4,7 @@
 <div class="container my-5">
     <h2 class="mb-4 text-center">Create Your CV</h2>
 
-    <form action="{{ route('cv.store') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('cv.generate') }}" method="POST" enctype="multipart/form-data">
         @csrf
 
         <!-- Profile Picture -->

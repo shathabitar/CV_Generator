@@ -4,21 +4,33 @@ namespace App\Http\Controllers;
 
 use App\Models\Skill;
 use App\Models\User;
-use App\Models\Education;
-use App\Models\Experience;
-use App\Models\Reference;
-use App\Models\Certificate; 
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use App\Jobs\GenerateCvPdf;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\View\View;
+use App\Http\Requests\StoreCvRequest;
+use App\Services\CvService;
 
+/**
+ * @mixin \Illuminate\Http\Request
+ */
 class CVController extends Controller
 {
+    public function __construct(
+        private CvService $cvService
+    ) {}
 
     public function index()
     {
-        $technicalSkills = Skill::where('type', 'technical')->get();
-        $softSkills = Skill::where('type', 'soft')->get();
+        // Cache skills for better performance
+        $technicalSkills = Cache::remember('technical_skills', 3600, function () {
+            return Skill::where('type', 'technical')->get();
+        });
+        
+        $softSkills = Cache::remember('soft_skills', 3600, function () {
+            return Skill::where('type', 'soft')->get();
+        });
 
         return view('cv.form', compact('technicalSkills', 'softSkills'));
     }
@@ -58,44 +70,16 @@ class CVController extends Controller
             $data['photo'] = $request->file('photo')->store('photos', 'public');
         }
 
-        return view('cv.preview', compact('data'));
+        return view('cv.preview', [
+            'data' => $data,
+            'userId' => null
+        ]);
     }
 
-   public function downloadCvPdf($id)
+    public function downloadCvPdf($id)
     {
-        $user = User::with(['educations', 'experiences', 'skills', 'references', 'certificates'])
-                    ->findOrFail($id);
-
-        $data = [
-            'name' => $user->name,
-            'photo' => $user->photo,
-            'about' => $user->about,
-            'education' => $user->educations->map(fn($edu) => [
-                'degree' => $edu->degree,
-                'institution' => $edu->institution,
-                'year' => $edu->year,
-            ]),
-            'experience' => $user->experiences->map(fn($exp) => [
-                'position' => $exp->position,
-                'company' => $exp->company,
-                'start_date' => $exp->start_date,
-                'end_date' => $exp->end_date,
-                'description' => $exp->description,
-            ]),
-            'technical_skills' => $user->skills->where('type', 'technical')->pluck('skill_name')->toArray(),
-            'soft_skills' => $user->skills->where('type', 'soft')->pluck('skill_name')->toArray(),
-            'reference' => $user->references->map(fn($ref) => [
-                'name' => $ref->name,
-                'company' => $ref->company,
-                'phone_number' => $ref->phone_number,
-                'email' => $ref->email,
-            ]),
-            'certificate' => $user->certificates->map(fn($cert) => [
-                'title' => $cert->title,
-                'company' => $cert->company,
-                'date' => $cert->date,
-            ]),
-        ];
+        $data = $this->cvService->getUserCvData($id);
+        $user = User::findOrFail($id);
 
         $pdf = Pdf::loadView('cv.pdf', compact('data'))
                 ->setOptions(['isRemoteEnabled' => true]);
@@ -103,10 +87,30 @@ class CVController extends Controller
         return $pdf->download("{$user->name}_CV.pdf");
     }
 
+    public function preview($id)
+    {
+        $data = $this->cvService->getUserCvData($id);
+
+        return view('cv.preview', [
+            'data' => $data,
+            'userId' => $id, 
+        ]);
+    }
+
+    public function generateCv($id)
+    {
+        User::findOrFail($id); // Verify user exists
+        
+        GenerateCvPdf::dispatch($id);
+
+        return response()->json([
+            'message' => 'Your CV is being generated. You will receive an email when it is ready.'
+        ]);
+    }
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'about' => 'required|string',
             'photo' => 'nullable|image|max:2048',
@@ -116,106 +120,33 @@ class CVController extends Controller
             'certificate' => 'nullable|array',
             'technical_skills' => 'nullable|array',
             'soft_skills' => 'nullable|array',
+            'custom_technical_skills' => 'nullable|array',
+            'custom_soft_skills' => 'nullable|array',
         ]);
+        
+        if ($request->hasFile('photo')) {
+            $validated['photo'] = $request->file('photo')->store('photos', 'public');
+        }
+        
+        $cvData = $this->cvService->composeCvData($validated, null);
 
-        $user = User::create([
-            'name' => $request->name,
-            'about' => $request->about,
-            'photo' => $request->photo ? $request->file('photo')->store('photos', 'public') : null,
+        return view('cv.preview', [
+            'data' => $cvData,
+            'userId' => null // No user ID for form-generated CVs
         ]);
-
-        $skills = Skill::whereIn('skill_name', array_merge(
-            $request->technical_skills ?? [],
-            $request->soft_skills ?? []
-        ))->pluck('id');
-        $user->skills()->attach($skills);
-
-        foreach ($request->education ?? [] as $edu) {
-            $education = Education::create($edu);
-            $user->educations()->attach($education->id);
-        }
-
-        foreach ($request->experience ?? [] as $exp) {
-            $experience = Experience::create($exp);
-            $user->experiences()->attach($experience->id);
-        }
-
-        foreach ($request->reference ?? [] as $ref) {
-            $reference = Reference::create($ref);
-            $user->references()->attach($reference->id);
-        }
-
-        foreach ($request->certificate ?? [] as $cert) {
-            $certificate = Certificate::create($cert);
-            $user->certificates()->attach($certificate->id);
-        }
-
-        return redirect()->route('cv.preview', $user->id);
     }
-
-    
-    public function preview($id)
-{
-    $user = User::with(['educations', 'experiences', 'skills', 'references', 'certificates'])
-                ->findOrFail($id);
-
-    $data = [
-        'name' => $user->name,
-        'photo' => $user->photo,
-        'about' => $user->about,
-        'education' => $user->educations->map(fn($edu) => [
-            'degree' => $edu->degree,
-            'institution' => $edu->institution,
-            'year' => $edu->year,
-        ]),
-        'experience' => $user->experiences->map(fn($exp) => [
-            'position' => $exp->position,
-            'company' => $exp->company,
-            'start_date' => $exp->start_date,
-            'end_date' => $exp->end_date,
-            'description' => $exp->description,
-        ]),
-        'technical_skills' => $user->skills->where('type', 'technical')->pluck('skill_name')->toArray(),
-        'soft_skills' => $user->skills->where('type', 'soft')->pluck('skill_name')->toArray(),
-        'reference' => $user->references->map(fn($ref) => [
-            'name' => $ref->name,
-            'company' => $ref->company,
-            'phone_number' => $ref->phone_number,
-            'email' => $ref->email,
-        ]),
-        'certificate' => $user->certificates->map(fn($cert) => [
-            'title' => $cert->title,
-            'company' => $cert->company,
-            'date' => $cert->date,
-        ]),
-    ];
-
-    return view('cv.preview', [
-        'data' => $data,
-        'userId' => $user->id, 
-    ]);
-}
-
 
     public function downloadPdf(Request $request)
     {
-        $data = json_decode($request->input('data'), true);
+        $data = $request->all();
+        
+        // Remove CSRF token from data
+        unset($data['_token']);
 
         $pdf = Pdf::loadView('cv.pdf', compact('data'))
                 ->setOptions(['isRemoteEnabled' => true]);
 
         return $pdf->download('My_CV.pdf');
     }
-
-    public function generateCv($id)
-    {
-        GenerateCvPdf::dispatch($id);
-
-        return response()->json([
-            'message' => 'Your CV is being generated. You will receive an email when it’s ready.'
-        ]);
-    }
-
-
 }
 

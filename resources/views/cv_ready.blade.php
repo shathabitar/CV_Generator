@@ -12,4 +12,5 @@
     <p>Best regards,<br>
     The CV Generator Team</p>
 </body>
+
 </html>

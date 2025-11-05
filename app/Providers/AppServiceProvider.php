@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\PerformanceService;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -11,7 +13,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register services
+        $this->app->singleton(PerformanceService::class);
     }
 
     /**
@@ -19,6 +22,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Set default string length for older MySQL versions
+        Schema::defaultStringLength(191);
+
+        // Enable performance monitoring in local environment
+        if ($this->app->environment('local')) {
+            PerformanceService::monitorSlowQueries();
+        }
     }
 }

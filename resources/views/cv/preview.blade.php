@@ -88,12 +88,31 @@
     @endif
 </div>
 
-<form id="pdf-download-form" action="{{ route('cv.download.pdf', $userId) }}" method="GET" style="display:none;">
-</form>
-
-<script>
-    window.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('pdf-download-form').submit();
-    });
-</script>
+@if(isset($userId) && $userId)
+<div style="text-align: center; margin-top: 20px;">
+    <a href="{{ route('cv.download.pdf', $userId) }}" class="btn btn-primary">Download PDF</a>
+</div>
+@else
+<div style="text-align: center; margin-top: 20px;">
+    <form action="{{ url('/download-pdf') }}" method="POST">
+        @csrf
+        @foreach($data as $key => $value)
+            @if(is_array($value))
+                @foreach($value as $index => $item)
+                    @if(is_array($item))
+                        @foreach($item as $subKey => $subValue)
+                            <input type="hidden" name="{{ $key }}[{{ $index }}][{{ $subKey }}]" value="{{ $subValue }}">
+                        @endforeach
+                    @else
+                        <input type="hidden" name="{{ $key }}[{{ $index }}]" value="{{ $item }}">
+                    @endif
+                @endforeach
+            @else
+                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+            @endif
+        @endforeach
+        <button type="submit" class="btn btn-primary">Download PDF</button>
+    </form>
+</div>
+@endif
 @endsection
