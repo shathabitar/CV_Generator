@@ -199,7 +199,7 @@ MAIL_PORT=587
 MAIL_USERNAME=sbitar@cpf.jo
 MAIL_FROM_ADDRESS=sbitar@cpf.jo
 
-OPENROUTER_API_KEY=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
+
 OPENROUTER_API_BASE=https://openrouter.ai/api/v1
 ```
 
