@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class PerformanceService
 {
@@ -13,7 +14,7 @@ class PerformanceService
     public static function monitorSlowQueries(): void
     {
         if (app()->environment('local')) {
-            \DB::listen(function ($query) {
+            DB::listen(function ($query) {
                 if ($query->time > 100) { // Log queries taking more than 100ms
                     Log::warning('Slow Query Detected', [
                         'sql' => $query->sql,
@@ -40,6 +41,6 @@ class PerformanceService
      */
     public static function clearUserCache(int $userId): void
     {
-        Cache::forget("user_cv_data_{$userId}");
+        Cache::forget("user_cv_data_$userId");
     }
 }

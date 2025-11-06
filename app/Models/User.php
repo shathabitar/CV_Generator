@@ -3,66 +3,47 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
+// Test comment: This is a simple test comment added to verify the User model can be modified
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'name',
         'email',
-        'about',
-        'photo',
+        'password',
     ];
 
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-    ];
-
-    // Optimized relationships with proper return types
-    public function skills(): BelongsToMany
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
     {
-        return $this->belongsToMany(Skill::class, 'skill_user'); 
-    }
-
-    public function educations(): BelongsToMany
-    {
-        return $this->belongsToMany(Education::class, 'education_user'); 
-    }
-
-    public function experiences(): BelongsToMany
-    {
-        return $this->belongsToMany(Experience::class, 'experience_user');
-    }
-
-    public function references(): BelongsToMany
-    {
-        return $this->belongsToMany(Reference::class, 'reference_user');
-    }
-
-    public function certificates(): BelongsToMany
-    {
-        return $this->belongsToMany(Certificate::class, 'certificate_user');
-    }
-
-    // Scope for loading all CV-related data efficiently
-    public function scopeWithCvData($query)
-    {
-        return $query->with([
-            'educations',
-            'experiences',
-            'skills',
-            'references',
-            'certificates'
-        ]);
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
     }
 }
